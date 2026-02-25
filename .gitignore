@@ -129,3 +129,4 @@ dist
 *.njsproj
 *.sln
 *.sw?
+primegreen-firebase.json
