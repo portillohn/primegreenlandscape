@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 
@@ -5,7 +6,7 @@ async function verifyAdmin(req: NextRequest) {
     const token = req.headers.get("authorization")?.replace("Bearer ", "");
     if (!token) throw new Error("No token");
     const decoded = await adminAuth.verifyIdToken(token);
-    if (decoded.uid !== process.env.ADMIN_UID) throw new Error("Not admin");
+    if (decoded.uid !== process.env.NEXT_PUBLIC_ADMIN_UID) throw new Error("Not admin");
     return decoded;
 }
 
