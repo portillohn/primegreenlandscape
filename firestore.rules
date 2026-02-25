@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.uid == "JK0caPIjk0VGACxR0ttxKd4wHDG2"; }
+    function isOwner(ownerUid) { return signedIn() && request.auth.uid == ownerUid; }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /properties/{propertyId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isAdmin(); // created by server/admin only
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(["notes","gateCode","accessNotes"]));
+      allow delete: if isAdmin();
+    }
+
+    match /servicePlans/{planId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isAdmin(); // created by server/admin only
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(["pauseUntil","preferredDay","updatedAt"]));
+      allow delete: if isAdmin();
+    }
+
+    match /visits/{visitId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isAdmin(); // created by server/admin only
+      allow update: if isAdmin()
+        || (signedIn()
+            && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly(["clientRequest","clientRequestStatus","clientRequestType","updatedAt"]));
+      allow delete: if isAdmin();
+    }
+
+    match /routeGroups/{routeId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /contact_submissions/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
