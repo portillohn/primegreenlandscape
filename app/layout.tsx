@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/context/AuthContext";
+import CommunityImpactModal from "@/components/CommunityImpactModal";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -82,6 +83,7 @@ export default function RootLayout({
                         }}
                     />
                 </AuthProvider>
+                <CommunityImpactModal />
 
                 {/* Google Maps — load only if key exists */}
                 {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
