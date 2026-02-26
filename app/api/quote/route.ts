@@ -1,9 +1,9 @@
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { PRICING_CONFIG, protectPrice } from "@/lib/pricingConfig";
 
-const RENTCAST_KEY = process.env.RENTCAST_API_KEY!;
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!;
 
 const MONTGOMERY_ZIPS = new Set([
     "20810", "20811", "20812", "20813", "20814", "20815", "20816", "20817", "20818",
@@ -30,14 +30,14 @@ const MONTGOMERY_CITIES = [
 ];
 
 // ── Geocode partial address → full address + ZIP + county ──
-async function geocodeAddress(raw: string): Promise<{
+async function geocodeAddress(raw: string, mapsKey: string): Promise<{
     fullAddress: string;
     zip: string;
     county: string;
     lat: number | null;
     lng: number | null;
 } | null> {
-    if (!MAPS_KEY) return null;
+    if (!mapsKey) return null;
 
     // Bias search to Maryland if no state given
     const query = raw.toLowerCase().includes(", md") ||
@@ -49,7 +49,7 @@ async function geocodeAddress(raw: string): Promise<{
         const url = `https://maps.googleapis.com/maps/api/geocode/json` +
             `?address=${encodeURIComponent(query)}` +
             `&components=country:US|administrative_area:MD` +
-            `&key=${MAPS_KEY}`;
+            `&key=${mapsKey}`;
 
         const res = await fetch(url, { next: { revalidate: 86400 } });
         if (!res.ok) return null;
@@ -133,33 +133,44 @@ function getMowableArea(lotSize: number, houseSize: number): number {
 }
 
 function calcPrices(sqft: number, demand: number, discount: number, surcharge: number) {
-    // Market rates for Montgomery County MD 2026:
-    // Essential (mow + edge):     $0.0026/sqft
-    // Premium   (+ fertilize):    $0.0045/sqft
-    // Ultimate  (+ aerate/seed):  $0.0062/sqft
+    // Raw market rates from config
+    const rawEssential = sqft * PRICING_CONFIG.rateEssential;
+    const rawPremium = sqft * PRICING_CONFIG.ratePremium;
+    const rawUltimate = sqft * PRICING_CONFIG.rateUltimate;
 
-    const essentialBase = Math.max(35, Math.round(sqft * 0.0026));
-    const premiumBase = Math.max(60, Math.round(sqft * 0.0045));
-    const ultimateBase = Math.max(85, Math.round(sqft * 0.0062));
-
-    const applyModifiers = (base: number) => {
-        let adj = base * demand;
+    const applyModifiers = (raw: number) => {
+        let adj = raw * demand;
         adj = adj * (1 - discount);
         adj = adj * (1 + surcharge);
-        return Math.round(adj);
+        return adj;  // raw adjusted price — protectPrice handles buffer + Stripe + floor + round
     };
 
+    const { final: essential, debug: dEss } = protectPrice(applyModifiers(rawEssential));
+    const { final: premium, debug: dPrem } = protectPrice(applyModifiers(rawPremium));
+    const { final: ultimate, debug: dUlt } = protectPrice(applyModifiers(rawUltimate));
+
+    // Production margin log — always available in Vercel Function logs
+    console.log("[PricingEngine] sqft=%d demand=%f discount=%f surcharge=%f",
+        Math.round(sqft), demand, discount, surcharge);
+    console.log("[PricingEngine] essential:", dEss);
+    console.log("[PricingEngine] premium:  ", dPrem);
+    console.log("[PricingEngine] ultimate: ", dUlt);
+
     return {
-        essential: applyModifiers(essentialBase),
-        premium: applyModifiers(premiumBase),
-        ultimate: applyModifiers(ultimateBase),
+        essential,
+        premium,
+        ultimate,
         breakdown: {
-            baseEssential: essentialBase,
-            basePremium: premiumBase,
-            baseUltimate: ultimateBase,
+            baseEssential: dEss.raw,
+            basePremium: dPrem.raw,
+            baseUltimate: dUlt.raw,
             demandMultiplier: demand,
             densityDiscount: discount,
-            outOfAreaSurcharge: surcharge
+            outOfAreaSurcharge: surcharge,
+            // Margin visibility
+            netEssential: dEss.netAfterStripe,
+            netPremium: dPrem.netAfterStripe,
+            netUltimate: dUlt.netAfterStripe,
         }
     };
 }
@@ -173,6 +184,10 @@ function getMapZoom(lotSize: number): number {
 }
 
 export async function POST(req: NextRequest) {
+    // Read env vars inside handler — safe at runtime, not at build time
+    const RENTCAST_KEY = process.env.RENTCAST_API_KEY ?? "";
+    const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+
     try {
         const { address } = await req.json();
 
@@ -186,7 +201,7 @@ export async function POST(req: NextRequest) {
         const rawAddress = address.trim();
 
         // ── Step 1: Geocode to get full address details ──────────
-        const geo = await geocodeAddress(rawAddress);
+        const geo = await geocodeAddress(rawAddress, MAPS_KEY);
 
         const fullAddress = geo?.fullAddress ?? rawAddress;
         const zip = geo?.zip ?? "";
