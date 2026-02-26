@@ -141,6 +141,14 @@ export default function HeroSection() {
                     ))}
                 </div>
 
+                {/* Donation micro-badge */}
+                <div className="inline-flex items-center gap-1.5
+                    bg-[#52B788]/15 border border-[#52B788]/30
+                    text-[#52B788] text-xs font-semibold
+                    px-4 py-1.5 rounded-full mb-5 md:mb-7">
+                    🐾 $1 donated per completed service this year
+                </div>
+
                 {/* 5 ─ Address input + CTA */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}

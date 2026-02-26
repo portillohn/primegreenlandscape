@@ -5,6 +5,10 @@ import Image from "next/image";
 
 const STORAGE_KEY = "communityImpactSeen";
 
+/** Future counter: multiply by total completed visits to show "$X donated so far this year" */
+export const DONATION_PER_SERVICE = 1; // dollars per completed visit
+
+
 export default function CommunityImpactModal() {
     const [visible, setVisible] = useState(false);
     const [mounted, setMounted] = useState(false);
