@@ -57,7 +57,7 @@ export default function QuoteResults({ result }: Props) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6 }}
-                className="w-full max-w-4xl mx-auto mt-10 space-y-8"
+                className="w-full max-w-4xl mx-auto mt-6 md:mt-10 space-y-6 md:space-y-8"
             >
                 {/* Satellite Map */}
                 <motion.div
@@ -104,7 +104,7 @@ export default function QuoteResults({ result }: Props) {
                         {" "}— prices shown per mowing visit
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch max-w-4xl mx-auto px-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch max-w-sm sm:max-w-4xl mx-auto px-0 sm:px-4">
                         {PLANS.map(({ tier, price, isBest }, i) => {
                             let basePrice;
                             if (result.breakdown) {

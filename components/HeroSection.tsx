@@ -73,7 +73,7 @@ export default function HeroSection() {
     return (
         <section
             id="quote"
-            className="relative min-h-screen pt-20 flex items-center justify-center px-6 overflow-hidden"
+            className="relative min-h-[85vh] md:min-h-screen pt-20 pb-10 md:pb-0 flex items-center justify-center px-4 sm:px-6 overflow-hidden"
         >
             {/* ── Background ── */}
             <div className="absolute inset-0 -z-10">
@@ -92,43 +92,47 @@ export default function HeroSection() {
             </div>
 
             {/* ── Content ── */}
-            <div className="relative z-10 w-full max-w-4xl mx-auto text-center flex flex-col items-center gap-0">
+            <div className="relative z-10 w-full max-w-4xl mx-auto text-center flex flex-col items-center">
 
                 {/* 1 ─ Micro badge */}
                 <div className="inline-flex items-center gap-2
                     bg-white/10 backdrop-blur-md border border-white/20
                     text-white/90 text-sm font-semibold
-                    px-4 py-2 rounded-full mb-7">
+                    px-4 py-2 rounded-full mb-5 md:mb-7">
                     <span className="w-2 h-2 rounded-full bg-[#52B788] animate-pulse flex-shrink-0" />
                     Serving Montgomery County, MD
                 </div>
 
                 {/* 2 ─ H1 */}
-                <h1 className="text-5xl md:text-6xl font-extrabold
-                    text-white leading-tight tracking-tight mb-6">
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold
+                    text-white leading-tight tracking-tight mb-4 md:mb-6">
                     Recurring Lawn Care,<br />
                     <span className="text-[#52B788]">Done Right.</span>
                 </h1>
 
                 {/* 3 ─ Subheadline */}
-                <p className="text-white/80 text-lg md:text-xl
-                    max-w-2xl mx-auto leading-relaxed mb-9">
+                <p className="hidden sm:block text-white/80 text-lg md:text-xl
+                    max-w-2xl mx-auto leading-relaxed mb-7 md:mb-9">
                     Weekly & biweekly mowing for homes across Montgomery County.{" "}
                     <strong className="text-white font-semibold">
                         Charged only after each completed visit.
                     </strong>{" "}
                     No contracts, no surprises.
                 </p>
+                {/* Mobile-only compact subline */}
+                <p className="sm:hidden text-white/75 text-base leading-relaxed mb-5 max-w-xs mx-auto">
+                    Weekly & biweekly mowing. Charged after each visit. No contracts.
+                </p>
 
                 {/* 4 ─ Trust badges */}
-                <div className="flex flex-wrap justify-center gap-2.5 mb-10">
+                <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-10 max-w-sm sm:max-w-none mx-auto">
                     {TRUST_BADGES.map(({ icon, text }) => (
                         <div
                             key={text}
                             className="inline-flex items-center gap-1.5
-                                px-4 py-2 rounded-full
+                                px-3 py-1.5 sm:px-4 sm:py-2 rounded-full
                                 bg-white/10 backdrop-blur-md border border-white/20
-                                text-white/90 text-sm font-medium
+                                text-white/85 text-xs sm:text-sm font-medium
                                 whitespace-nowrap"
                         >
                             <span>{icon}</span>
@@ -142,7 +146,7 @@ export default function HeroSection() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
-                    className="w-full max-w-2xl mx-auto"
+                    className="w-full max-w-md sm:max-w-2xl mx-auto"
                 >
                     <div className="flex flex-col sm:flex-row gap-3">
                         {/* Input */}
@@ -164,7 +168,7 @@ export default function HeroSection() {
                         <button
                             onClick={handleQuote}
                             disabled={step === "loading" || !address.trim()}
-                            className="bg-[#52B788] hover:bg-[#40916C]
+                            className="w-full sm:w-auto bg-[#52B788] hover:bg-[#40916C]
                                 disabled:opacity-50 disabled:cursor-not-allowed
                                 text-white font-bold rounded-xl
                                 px-8 py-4 text-base
