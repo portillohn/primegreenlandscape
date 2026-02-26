@@ -1,33 +1,52 @@
 /**
- * Firebase Admin SDK singleton.
+ * Firebase Admin SDK — Lazy Proxy Initialization
  *
- * The private key guard (`?? ""`) prevents the `.replace()` call from
- * throwing "Cannot read properties of undefined" during Next.js static
- * page-data collection at build time (when env vars may not yet be injected).
+ * IMPORTANT: Nothing firebase-related runs at module load time.
+ * The SDK is only initialized on the FIRST property access inside
+ * a request handler, never during Next.js build-time module evaluation.
  *
- * All API routes that import this module MUST export:
- *   export const dynamic = "force-dynamic";
- * so Next.js never attempts to pre-render them.
+ * This prevents "TypeError: Cannot read properties of undefined"
+ * when env vars are not set during `npm run build` (e.g. on Vercel).
  */
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { Auth, getAuth } from "firebase-admin/auth";
+import { Firestore, getFirestore } from "firebase-admin/firestore";
+import { Storage, getStorage } from "firebase-admin/storage";
 
-const adminApp = getApps().length
-    ? getApps()[0]
-    : initializeApp({
+// ── Lazy App Factory ─────────────────────────────────────────────────────────
+
+function getAdminApp() {
+    if (getApps().length > 0) return getApps()[0];
+
+    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+    if (!privateKey) throw new Error("[firebase-admin] FIREBASE_ADMIN_PRIVATE_KEY is not set");
+
+    return initializeApp({
         credential: cert({
             projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
             clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-            // Guard: if env var is missing at build time, default to "" to avoid
-            // "Cannot read properties of undefined (reading 'replace')" crash
-            privateKey: (process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? "")
-                .replace(/\\n/g, "\n"),
+            privateKey: privateKey.replace(/\\n/g, "\n"),
         }),
         storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     });
+}
 
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
-export const adminStorage = getStorage(adminApp);
+// ── Lazy Proxy Helpers ───────────────────────────────────────────────────────
+// Each export is a Proxy that forwards property access to the real SDK object.
+// The real object is only created when a property is first accessed at runtime.
+
+function lazyProxy<T extends object>(factory: () => T): T {
+    return new Proxy({} as T, {
+        get(_, prop) {
+            const instance = factory();
+            const value = (instance as any)[prop];
+            return typeof value === "function" ? value.bind(instance) : value;
+        },
+    });
+}
+
+// ── Exports ──────────────────────────────────────────────────────────────────
+
+export const adminAuth = lazyProxy<Auth>(() => getAuth(getAdminApp()));
+export const adminDb = lazyProxy<Firestore>(() => getFirestore(getAdminApp()));
+export const adminStorage = lazyProxy<Storage>(() => getStorage(getAdminApp()));
