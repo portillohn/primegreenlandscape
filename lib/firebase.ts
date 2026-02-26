@@ -1,4 +1,14 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+/**
+ * lib/firebase.ts — Client Firebase SDK (lazy initialization)
+ *
+ * `auth` and `db` are Proxy objects. Firebase is only initialized when a
+ * property is first accessed — which happens inside useEffect / event handlers
+ * in the browser, NEVER during Next.js SSR or static prerendering.
+ *
+ * This prevents "FirebaseError: auth/invalid-api-key" when NEXT_PUBLIC_*
+ * env vars are not set during `npm run build` on Vercel.
+ */
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import {
     getAuth,
     signInWithEmailAndPassword,
@@ -7,6 +17,7 @@ import {
     GoogleAuthProvider,
     signOut,
     updateProfile,
+    type Auth,
 } from "firebase/auth";
 import {
     getFirestore,
@@ -21,7 +32,10 @@ import {
     getDocs,
     where,
     limit,
+    type Firestore,
 } from "firebase/firestore";
+
+// ── Config ────────────────────────────────────────────────────────────────────
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -32,13 +46,38 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+// ── Lazy App Factory ──────────────────────────────────────────────────────────
+
+function getFirebaseApp(): FirebaseApp {
+    return getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+}
+
+// ── Lazy Proxy Helper ─────────────────────────────────────────────────────────
+// The Proxy's get trap only fires when a property is accessed at runtime
+// (inside useEffect / event handlers in the browser).
+// During SSR / static prerendering the auth/db objects are imported but
+// never accessed → Firebase never initializes → no crash.
+
+function lazyProxy<T extends object>(factory: () => T): T {
+    return new Proxy({} as T, {
+        get(_, prop) {
+            const inst = factory();
+            const val = (inst as any)[prop];
+            return typeof val === "function" ? val.bind(inst) : val;
+        },
+    });
+}
+
+// ── Exports ───────────────────────────────────────────────────────────────────
+
+export const auth = lazyProxy<Auth>(() => getAuth(getFirebaseApp()));
+export const db = lazyProxy<Firestore>(() => getFirestore(getFirebaseApp()));
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope("email");
 googleProvider.addScope("profile");
+
+// ── Auth Helpers ──────────────────────────────────────────────────────────────
 
 export const loginWithEmail = (email: string, password: string) =>
     signInWithEmailAndPassword(auth, email, password);
@@ -58,6 +97,8 @@ export const registerWithEmail = async (
 };
 
 export const logout = () => signOut(auth);
+
+// ── Firestore Helpers ─────────────────────────────────────────────────────────
 
 export const createUserDocument = async (
     user: { uid: string; displayName?: string | null; email?: string | null },
@@ -91,10 +132,8 @@ export const updateUserProfile = (
 /**
  * Get the user's active servicePlan.
  * Queries by ownerUid (required by Firestore rules).
- * Falls back to customerUid for backwards compat with older docs.
  */
 export async function getUserActivePlan(uid: string): Promise<Record<string, unknown> | null> {
-    // Primary query: ownerUid (matches production Firestore rules)
     let plansSnap = await getDocs(
         query(
             collection(db, "servicePlans"),
@@ -104,7 +143,6 @@ export async function getUserActivePlan(uid: string): Promise<Record<string, unk
         )
     );
 
-    // Fallback: customerUid for legacy docs created before ownerUid was introduced
     if (plansSnap.empty) {
         plansSnap = await getDocs(
             query(
@@ -121,32 +159,20 @@ export async function getUserActivePlan(uid: string): Promise<Record<string, unk
     const planDoc = plansSnap.docs[0];
     const planData = planDoc.data() as Record<string, unknown>;
 
-    // Fetch associated property for address display
     let property: Record<string, unknown> = {};
     if (planData.propertyId) {
         try {
             const propSnap = await getDoc(doc(db, "properties", planData.propertyId as string));
             if (propSnap.exists()) property = { id: propSnap.id, ...propSnap.data() };
-        } catch {
-            // Property fetch may fail if not yet ownerUid indexed — not critical
-        }
+        } catch { /* non-critical */ }
     }
 
-    return {
-        ...planData,
-        id: planDoc.id,
-        property,
-    };
+    return { ...planData, id: planDoc.id, property };
 }
 
-/**
- * Get upcoming scheduled visits — queries by ownerUid.
- * Falls back to servicePlanId for legacy docs.
- */
 export async function getUpcomingVisits(planId: string, uid: string, limitCount = 3) {
     const today = new Date().toISOString().split("T")[0];
 
-    // Primary: ownerUid + scheduledDate >= today
     let snap = await getDocs(
         query(
             collection(db, "visits"),
@@ -158,7 +184,6 @@ export async function getUpcomingVisits(planId: string, uid: string, limitCount 
         )
     );
 
-    // Fallback: servicePlanId for legacy docs
     if (snap.empty) {
         snap = await getDocs(
             query(
@@ -175,11 +200,7 @@ export async function getUpcomingVisits(planId: string, uid: string, limitCount 
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-/**
- * Get completed visits (payment history) — queries by ownerUid.
- */
 export async function getCompletedVisits(planId: string, uid: string, limitCount = 25) {
-    // Primary: ownerUid
     let snap = await getDocs(
         query(
             collection(db, "visits"),
@@ -190,7 +211,6 @@ export async function getCompletedVisits(planId: string, uid: string, limitCount
         )
     );
 
-    // Fallback: servicePlanId for legacy docs
     if (snap.empty) {
         snap = await getDocs(
             query(
