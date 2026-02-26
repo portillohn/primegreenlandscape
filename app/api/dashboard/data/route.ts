@@ -10,6 +10,7 @@
  * - Falls back to customerUid for legacy docs
  * - All Firestore Timestamps serialized to ISO strings
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";

@@ -4,6 +4,7 @@
  * Retries a failed charge for a completed visit.
  * Uses a fresh idempotency key (timestamp-based) to allow retry of previously failed attempt.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";

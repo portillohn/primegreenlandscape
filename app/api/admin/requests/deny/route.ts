@@ -5,6 +5,7 @@
  * Denies a client skip request.
  * ONLY updates visits/{visitId} — never queries by date/planId/ownerUid.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";

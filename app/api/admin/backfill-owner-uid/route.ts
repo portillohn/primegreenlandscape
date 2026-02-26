@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 /**
  * POST /api/admin/backfill-owner-uid

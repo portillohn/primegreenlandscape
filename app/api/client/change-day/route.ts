@@ -10,6 +10,7 @@
  *
  * History is NEVER polluted — deleted visits leave no trace.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";

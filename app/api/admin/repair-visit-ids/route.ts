@@ -13,6 +13,7 @@
  *
  * Pass ?dry=true to only report without making changes.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
